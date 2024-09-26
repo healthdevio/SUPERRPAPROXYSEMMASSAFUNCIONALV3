@@ -1,0 +1,16 @@
+{
+  "name": "rpa_v2_em_massa",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "start": "node fetchVotersData.js"
+  },
+  "dependencies": {
+    "axios": "^1.7.7",
+    "cheerio": "^1.0.0",
+    "dotenv": "^16.4.5",
+    "p-limit": "^3.1.0",
+    "pg": "^8.13.0",
+    "puppeteer": "^23.4.0"
+  }
+}
