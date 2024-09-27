@@ -1,12 +1,50 @@
-const puppeteer = require('puppeteer');
+const puppeteer = require('puppeteer-extra');
 const { Client } = require('pg');
 const fs = require('fs');
 const path = require('path');
 require('dotenv').config();
 
-function formatDate(dateStr) {
-  const [year, month, day] = dateStr.split('-');
-  return `${day}/${month}/${year}`;
+const StealthPlugin = require('puppeteer-extra-plugin-stealth');
+puppeteer.use(StealthPlugin());
+
+function formatDate(birthday) {
+  console.log(`Formato original da data de nascimento: ${birthday} (Tipo: ${typeof birthday})`);
+
+  if (!birthday) return '';
+
+  let day, month, year;
+
+  if (typeof birthday === 'string') {
+    if (birthday.includes('/')) {
+      const parts = birthday.split('/');
+      if (parts.length !== 3) {
+        throw new Error(`Formato de data inválido: ${birthday}`);
+      }
+      [day, month, year] = parts;
+    } else if (birthday.includes('-')) {
+      const parts = birthday.split('-');
+      if (parts.length !== 3) {
+        throw new Error(`Formato de data inválido: ${birthday}`);
+      }
+      [year, month, day] = parts;
+    } else {
+      throw new Error(`Formato de data desconhecido: ${birthday}`);
+    }
+  } else if (birthday instanceof Date) {
+    day = String(birthday.getDate()).padStart(2, '0');
+    month = String(birthday.getMonth() + 1).padStart(2, '0');
+    year = birthday.getFullYear();
+  } else {
+    throw new Error('Formato de data não suportado');
+  }
+
+  if (!day || !month || !year) {
+    throw new Error(`Componentes da data inválidos: ${birthday}`);
+  }
+
+  const formattedDate = `${day}/${month}/${year}`;
+  console.log(`Data de nascimento formatada: ${formattedDate}`);
+  return formattedDate;
 }
 
 function formatCpf(cpf) {
@@ -31,6 +69,7 @@ const dbClient = new Client({
 async function initBrowser() {
   console.log('1.0.1 [Browser] Iniciando o navegador...');
   const browser = await puppeteer.launch({
+    headless: false,
     args: [
       '--no-sandbox',
       '--disable-setuid-sandbox',
@@ -52,6 +91,10 @@ async function fetchVoterData({ cpf, birthDate, motherName }, browser) {
   console.log('1.0.3 Entrou no fetch voter data');
   const page = await browser.newPage();
 
+  await page.setUserAgent(
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko)'
+  );
+
   try {
     console.log('1.0.4 [RPA] Acessando o site do TRE-CE...');
     await page.goto(
@@ -63,7 +106,6 @@ async function fetchVoterData({ cpf, birthDate, motherName }, browser) {
     );
     console.log('1.0.5 [RPA] Site acessado com sucesso.');
 
-    // Espera de 5 segundos
     await new Promise((resolve) => setTimeout(resolve, 5000));
 
     await page.waitForSelector('.cookies .botao button', {
@@ -123,20 +165,33 @@ async function fetchVoterData({ cpf, birthDate, motherName }, browser) {
 
     await page.waitForSelector('.btn-tse', {
       visible: true,
-      timeout: 6000,
+      timeout: 7000,
     });
     const button = await page.$('.btn-tse');
     if (button) {
-      await page.evaluate((b) => b.click(), button);
-      console.log(`Submetendo formulário para CPF: ${formattedCpf}`);
+      const boundingBox = await button.boundingBox();
+      if (boundingBox) {
+        await page.mouse.move(
+          boundingBox.x + boundingBox.width / 2,
+          boundingBox.y + boundingBox.height / 2,
+          { steps: 10 },
+        );
+        await page.mouse.click(
+          boundingBox.x + boundingBox.width / 2,
+          boundingBox.y + boundingBox.height / 2,
+          { delay: 100 },
+        );
+        console.log(`Submetendo formulário para CPF: ${cpf}`);
+      } else {
+        throw new Error('Não foi possível obter as coordenadas do botão');
+      }
     } else {
       throw new Error('Botão de submissão não encontrado');
     }
 
     console.log('[FORM]: Formulário submetido');
 
-    // Espera de 5 segundos
-    await new Promise((resolve) => setTimeout(resolve, 5000));
+    await new Promise((resolve) => setTimeout(resolve, 6000 + Math.random() * 3000));
 
     const data = await page.evaluate(() => {
       const voterComponent = document.querySelector('.componente-onde-votar');
@@ -180,41 +235,43 @@ async function fetchVoterData({ cpf, birthDate, motherName }, browser) {
     });
 
     if (data.error) {
-      // const screenshotDir = path.join(__dirname, 'rpa');
-      // if (!fs.existsSync(screenshotDir)) {
-      //   fs.mkdirSync(screenshotDir, { recursive: true });
-      // }
+      console.log("É aqui que fodeu")
+      const screenshotDir = path.join(__dirname, 'rpa');
+      if (!fs.existsSync(screenshotDir)) {
+        fs.mkdirSync(screenshotDir, { recursive: true });
+      }
 
       const timestamp = new Date().toISOString();
-      // const screenshotPath = path.join(
-      //   screenshotDir,
-      //   `erro_${cpf.replace(/\s+/g, '_')}_${timestamp}.png`,
-      // );
-      // await page.screenshot({ path: screenshotPath });
-      // console.error(
-      //   `[${timestamp}] 1.2.4 [RPA] Erro ao processar CPF: ${cpf} - ${data.message}`,
-      // );
+      const screenshotPath = path.join(
+        screenshotDir,
+        `erro_${cpf.replace(/\s+/g, '_')}_${timestamp}.png`,
+      );
+      await page.screenshot({ path: screenshotPath });
+      console.error(
+        `[${timestamp}] 1.2.4 [RPA] Erro ao processar CPF: ${cpf} - ${data.message}`,
+      );
       throw new Error(data.message);
     }
     console.log(
-      `1.2.3 [RPA] Dados obtidos com sucesso para CPF: ${formattedCpf}`,
+      `1.2.3 [RPA] Dados obtidos com sucesso para CPF: ${cpf}`,
     );
     return data.data;
   } catch (error) {
-    // const screenshotDir = path.join(__dirname, 'rpa');
-    // if (!fs.existsSync(screenshotDir)) {
-    //   fs.mkdirSync(screenshotDir, { recursive: true });
-    // }
+    console.log("NAOOO é somente aqui que fodeu")
+    const screenshotDir = path.join(__dirname, 'rpa');
+    if (!fs.existsSync(screenshotDir)) {
+      fs.mkdirSync(screenshotDir, { recursive: true });
+    }
 
     const timestamp = new Date().toISOString();
-    // const screenshotPath = path.join(
-    //   screenshotDir,
-    //   `erro_${cpf.replace(/\s+/g, '_')}_${timestamp}.png`,
-    // );
-    // await page.screenshot({ path: screenshotPath });
-    // console.error(
-    //   `[${timestamp}] 1.2.4 [RPA] Erro ao processar CPF: ${cpf} - ${error.message}`,
-    // );
+    const screenshotPath = path.join(
+      screenshotDir,
+      `erro_${cpf.replace(/\s+/g, '_')}_${timestamp}.png`,
+    );
+    await page.screenshot({ path: screenshotPath });
+    console.error(
+      `[${timestamp}] 1.2.4 [RPA] Erro ao processar CPF: ${cpf} - ${error.message}`,
+    );
     throw error;
   } finally {
     await page.close();
@@ -303,7 +360,7 @@ async function processSupporters() {
 
     console.log(`1.3.2 [DB] Total de apoiadores encontrados: ${totalSupporters}`);
 
-    const concurrencyLimit = 5; // Ajuste conforme necessário
+    const concurrencyLimit = 5;
     const queue = supporters.slice();
 
     async function worker() {
@@ -313,27 +370,43 @@ async function processSupporters() {
           const supporter = queue.shift();
           totalProcessed++;
           const { birthday, mother_name: motherName, cpf } = supporter;
-          console.log(`1.3.4 [Processo] Processando CPF: ${cpf}...`);
+
+          let formattedCpf, formattedBirthDate, formattedMotherName;
+          try {
+            formattedCpf = formatCpf(cpf);
+            formattedBirthDate = formatDate(birthday);
+            formattedMotherName = normalize(motherName.toUpperCase());
+          } catch (formatError) {
+            const timestamp = new Date().toISOString();
+            console.error(
+              `[${timestamp}] 1.4.1 [Processo] Erro ao formatar dados para CPF: ${cpf} (Data de nascimento: ${birthday}, Nome da mãe: ${motherName}):`,
+              formatError.message,
+            );
+            totalFailures++;
+            continue;
+          }
+
+          console.log(`1.3.4 [Processo] Processando CPF: ${formattedCpf}...`);
 
           try {
             const data = await fetchVoterData(
               {
-                cpf,
-                birthDate: birthday,
-                motherName,
+                cpf: formattedCpf,
+                birthDate: formattedBirthDate,
+                motherName: formattedMotherName,
               },
               browser,
             );
             console.log(
-              `1.3.5 [Processo] Dados obtidos para CPF: ${cpf}:`,
+              `1.3.5 [Processo] Dados obtidos para CPF: ${formattedCpf}:`,
               data,
             );
-            await updateSupporterData(cpf, data);
+            await updateSupporterData(formattedCpf, data);
             totalSuccess++;
           } catch (error) {
             const timestamp = new Date().toISOString();
             console.error(
-              `[${timestamp}] 1.4.0 [Processo] Erro ao buscar dados para CPF: ${cpf} (Data de nascimento: ${birthday}, Nome da mãe: ${motherName}):`,
+              `[${timestamp}] 1.4.0 [Processo] Erro ao buscar dados para CPF: ${formattedCpf} (Data de nascimento: ${formattedBirthDate}, Nome da mãe: ${formattedMotherName}):`,
               error.message,
             );
             totalFailures++;
