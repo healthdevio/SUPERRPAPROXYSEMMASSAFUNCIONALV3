@@ -13,13 +13,13 @@ function randomDelay(min, max) {
   return Math.floor(Math.random() * (max - min + 1)) + min;
 }
 
-async function humanType(page, selector, text) {
+async function humanType(page, selector, text, typos = true) {
   await page.focus(selector);
 
   for (let i = 0; i < text.length; i++) {
     await new Promise(resolve => setTimeout(resolve, randomDelay(100, 300)));
 
-    if (Math.random() < 0.1 && i > 0) { 
+    if (typos && Math.random() < 0.1 && i > 0) { 
       const typoChar = String.fromCharCode(97 + Math.floor(Math.random() * 26)); 
       await page.keyboard.type(typoChar);
       await new Promise(resolve => setTimeout(resolve, randomDelay(100, 300)));
@@ -29,7 +29,7 @@ async function humanType(page, selector, text) {
     await page.keyboard.type(text[i]);
   }
 
-  if (Math.random() < 0.2) { 
+  if (typos && Math.random() < 0.2) { 
     const extraChar = String.fromCharCode(97 + Math.floor(Math.random() * 26));
     await page.keyboard.type(extraChar);
     await new Promise(resolve => setTimeout(resolve, randomDelay(100, 300)));
@@ -98,9 +98,19 @@ const dbClient = new Client({
 
 async function initBrowser() {
   console.log('1.0.1 [Browser] Iniciando o navegador...');
+
+  const resolutions = [
+    { width: 2560, height: 1440 },
+    { width: 1920, height: 1080 },
+    { width: 1280, height: 720 },
+  ];
+
+  const resolution = resolutions[Math.floor(Math.random() * resolutions.length)];
+
   const browser = await puppeteer.launch({
     headless: false,
     args: [
+      `--window-size=${resolution.width},${resolution.height}`,
       '--no-sandbox',
       '--disable-setuid-sandbox',
       '--disable-dev-shm-usage',
@@ -113,13 +123,22 @@ async function initBrowser() {
     ],
     waitForInitialPage: false,
   });
-  console.log('1.0.2 [Browser] Navegador iniciado com sucesso.');
+  console.log(`1.0.2 [Browser] Navegador iniciado com sucesso com resolução ${resolution.width}x${resolution.height}.`);
   return browser;
 }
 
 async function fetchVoterData({ cpf, birthDate, motherName }, browser) {
   console.log('1.0.3 Entrou no fetch voter data');
   const page = await browser.newPage();
+
+  const viewport = browser.wsEndpoint().match(/--window-size=(\d+),(\d+)/);
+  if (viewport) {
+    await page.setViewport({
+      width: parseInt(viewport[1]),
+      height: parseInt(viewport[2]),
+    });
+  }
+
 
   await page.setUserAgent(new userAgents().toString());
 
@@ -169,15 +188,20 @@ async function fetchVoterData({ cpf, birthDate, motherName }, browser) {
       timeout: randomDelay(1000, 3000),
     });
 
-    await humanType(page, '[formcontrolname=TituloCPFNome]', formattedCpf);
-    console.log(`CPF preenchido: ${formattedCpf}`);
+    await humanType(page, '[formcontrolname=TituloCPFNome]', formattedCpf, false);
+    console.log(`CPF preenchido: ${formattedCpf}`);    
 
     await page.waitForSelector('[formcontrolname=dataNascimento]', {
       visible: true,
       timeout: randomDelay(1000, 3000),
     });
-    await humanType(page, '[formcontrolname=dataNascimento]', formattedBirthDate);
+    await humanType(page, '[formcontrolname=dataNascimento]', formattedBirthDate, false);
     console.log(`Data de nascimento preenchida: ${formattedBirthDate}`);
+
+    const dateFieldValue = await page.$eval('[formcontrolname=dataNascimento]', el => el.value.trim());
+    if (dateFieldValue !== formattedBirthDate) {
+      throw new Error('Data de nascimento não preenchida corretamente.');
+    }
 
     await page.waitForSelector('[formcontrolname=nomeMae]', {
       visible: true,
@@ -187,6 +211,7 @@ async function fetchVoterData({ cpf, birthDate, motherName }, browser) {
       page,
       '[formcontrolname=nomeMae]',
       normalize(motherName.toUpperCase()),
+      true, 
     );
     console.log(
       `Nome da mãe preenchido: ${normalize(motherName.toUpperCase())}`,
@@ -264,7 +289,6 @@ async function fetchVoterData({ cpf, birthDate, motherName }, browser) {
     });
 
     if (data.error) {
-      console.log("É aqui que fodeu");
       const screenshotDir = path.join(__dirname, 'rpa');
       if (!fs.existsSync(screenshotDir)) {
         fs.mkdirSync(screenshotDir, { recursive: true });
@@ -286,7 +310,6 @@ async function fetchVoterData({ cpf, birthDate, motherName }, browser) {
     );
     return data.data;
   } catch (error) {
-    console.log("NAOOO é somente aqui que fodeu");
     const screenshotDir = path.join(__dirname, 'rpa');
     if (!fs.existsSync(screenshotDir)) {
       fs.mkdirSync(screenshotDir, { recursive: true });
@@ -387,7 +410,9 @@ async function processSupporters() {
 
     const totalSupporters = supporters.length;
 
-    console.log(`1.3.2 [DB] Total de apoiadores encontrados: ${totalSupporters}`);
+    console.log(
+      `1.3.2 [DB] Total de apoiadores encontrados: ${totalSupporters}`,
+    );
 
     const concurrencyLimit = 5;
     const queue = supporters.slice();
