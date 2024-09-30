@@ -96,6 +96,28 @@ const dbClient = new Client({
   },
 });
 
+const fortalezaLocations = [
+  { latitude: -3.71722, longitude: -38.5434 }, // Centro de Fortaleza
+  { latitude: -3.73053, longitude: -38.5233 }, // Praia de Iracema
+  { latitude: -3.74935, longitude: -38.5238 }, // Beira Mar
+  { latitude: -3.7941, longitude: -38.4939 },  // Aldeota
+  { latitude: -3.83935, longitude: -38.5744 }, // Messejana
+  { latitude: -3.72631, longitude: -38.4766 }, // Benfica
+];
+
+function getRandomFortalezaLocation() {
+  return fortalezaLocations[Math.floor(Math.random() * fortalezaLocations.length)];
+}
+
+async function setGeolocation(page) {
+  const randomLocation = getRandomFortalezaLocation();
+  await page.setGeolocation({
+    latitude: randomLocation.latitude,
+    longitude: randomLocation.longitude
+  });
+  console.log(`Geolocalização definida para: Lat ${randomLocation.latitude}, Long ${randomLocation.longitude}`);
+}
+
 async function initBrowser() {
   console.log('1.0.1 [Browser] Iniciando o navegador...');
 
@@ -123,6 +145,38 @@ async function initBrowser() {
     ],
     waitForInitialPage: false,
   });
+  
+  const context = browser.defaultBrowserContext();
+  await context.overridePermissions('https://www.tre-ce.jus.br', ['geolocation']);
+
+  await browser.on('targetcreated', async (target) => {
+    const page = await target.page();
+    if (page) {
+      await page.evaluateOnNewDocument(() => {
+        Object.defineProperty(navigator, 'webdriver', {
+          get: () => false,
+        });
+
+        const getParameter = WebGLRenderingContext.prototype.getParameter;
+        WebGLRenderingContext.prototype.getParameter = function(parameter) {
+          if (parameter === 37445) return 'Intel Inc.';
+          if (parameter === 37446) return 'Intel Iris OpenGL Engine'; 
+          return getParameter(parameter);
+        };
+
+        Object.defineProperty(navigator, 'languages', {
+          get: () => ['pt-BR', 'pt', 'en-US'],
+        });
+
+        const originalError = console.error;
+        console.error = function(message) {
+          if (message.includes('error')) return;
+          originalError.apply(console, arguments);
+        };
+      });
+    }
+  });
+
   console.log(`1.0.2 [Browser] Navegador iniciado com sucesso com resolução ${resolution.width}x${resolution.height}.`);
   return browser;
 }
@@ -130,6 +184,7 @@ async function initBrowser() {
 async function fetchVoterData({ cpf, birthDate, motherName }, browser) {
   console.log('1.0.3 Entrou no fetch voter data');
   const page = await browser.newPage();
+  await setGeolocation(page);
 
   const viewport = browser.wsEndpoint().match(/--window-size=(\d+),(\d+)/);
   if (viewport) {
@@ -147,7 +202,7 @@ async function fetchVoterData({ cpf, birthDate, motherName }, browser) {
     await page.goto(
       'https://www.tre-ce.jus.br/servicos-eleitorais/titulo-e-local-de-votacao/consulta-por-nome',
       {
-        waitUntil: 'domcontentloaded',
+        waitUntil: 'networkidle2',
         timeout: 120000,
       },
     );
@@ -157,7 +212,7 @@ async function fetchVoterData({ cpf, birthDate, motherName }, browser) {
 
     await page.waitForSelector('.cookies .botao button', {
       visible: true,
-      timeout: randomDelay(1000, 3000),
+      timeout: randomDelay(4000, 9000),
     });
     const cienteButton = await page.$('div.botao button.btn');
     if (cienteButton) {
@@ -185,7 +240,7 @@ async function fetchVoterData({ cpf, birthDate, motherName }, browser) {
 
     await page.waitForSelector('[formcontrolname=TituloCPFNome]', {
       visible: true,
-      timeout: randomDelay(1000, 3000),
+      timeout: randomDelay(4000, 9000),
     });
 
     await humanType(page, '[formcontrolname=TituloCPFNome]', formattedCpf, false);
@@ -193,7 +248,7 @@ async function fetchVoterData({ cpf, birthDate, motherName }, browser) {
 
     await page.waitForSelector('[formcontrolname=dataNascimento]', {
       visible: true,
-      timeout: randomDelay(1000, 3000),
+      timeout: randomDelay(4000, 9000),
     });
     await humanType(page, '[formcontrolname=dataNascimento]', formattedBirthDate, false);
     console.log(`Data de nascimento preenchida: ${formattedBirthDate}`);
@@ -205,7 +260,7 @@ async function fetchVoterData({ cpf, birthDate, motherName }, browser) {
 
     await page.waitForSelector('[formcontrolname=nomeMae]', {
       visible: true,
-      timeout: randomDelay(1000, 3000),
+      timeout: randomDelay(4000, 9000),
     });
     await humanType(
       page,
@@ -219,7 +274,7 @@ async function fetchVoterData({ cpf, birthDate, motherName }, browser) {
 
     await page.waitForSelector('.btn-tse', {
       visible: true,
-      timeout: randomDelay(1000, 3000),
+      timeout: randomDelay(4000, 9000),
     });
     const button = await page.$('.btn-tse');
     if (button) {
