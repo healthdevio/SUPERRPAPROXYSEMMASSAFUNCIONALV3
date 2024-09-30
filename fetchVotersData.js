@@ -183,7 +183,9 @@ async function initBrowser() {
 
 async function fetchVoterData({ cpf, birthDate, motherName }, browser) {
   console.log('1.0.3 Entrou no fetch voter data');
-  const page = await browser.newPage();
+
+  const context = await browser.createIncognitoBrowserContext();
+  const page = await context.newPage();
   await setGeolocation(page);
 
   const viewport = browser.wsEndpoint().match(/--window-size=(\d+),(\d+)/);
@@ -208,7 +210,7 @@ async function fetchVoterData({ cpf, birthDate, motherName }, browser) {
     );
     console.log('1.0.5 [RPA] Site acessado com sucesso.');
 
-    await new Promise((resolve) => setTimeout(resolve, randomDelay(1000, 3000)));
+    await new Promise((resolve) => setTimeout(resolve, randomDelay(4000, 9000)));
 
     await page.waitForSelector('.cookies .botao button', {
       visible: true,
@@ -288,7 +290,7 @@ async function fetchVoterData({ cpf, birthDate, motherName }, browser) {
         await page.mouse.click(
           boundingBox.x + boundingBox.width / 2,
           boundingBox.y + boundingBox.height / 2,
-          { delay: randomDelay(1000, 3000) },
+          { delay: randomDelay(3000, 9000) },
         );
         console.log(`Submetendo formulário para CPF: ${cpf}`);
       } else {
