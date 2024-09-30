@@ -184,8 +184,7 @@ async function initBrowser() {
 async function fetchVoterData({ cpf, birthDate, motherName }, browser) {
   console.log('1.0.3 Entrou no fetch voter data');
 
-  const context = await browser.createIncognitoBrowserContext();
-  const page = await context.newPage();
+  const page = await browser.newPage();
   await setGeolocation(page);
 
   const viewport = browser.wsEndpoint().match(/--window-size=(\d+),(\d+)/);
