@@ -5,7 +5,37 @@ const path = require('path');
 require('dotenv').config();
 
 const StealthPlugin = require('puppeteer-extra-plugin-stealth');
+const userAgents = require('user-agents');
+
 puppeteer.use(StealthPlugin());
+
+function randomDelay(min, max) {
+  return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+
+async function humanType(page, selector, text) {
+  await page.focus(selector);
+
+  for (let i = 0; i < text.length; i++) {
+    await new Promise(resolve => setTimeout(resolve, randomDelay(100, 300)));
+
+    if (Math.random() < 0.1 && i > 0) { 
+      const typoChar = String.fromCharCode(97 + Math.floor(Math.random() * 26)); 
+      await page.keyboard.type(typoChar);
+      await new Promise(resolve => setTimeout(resolve, randomDelay(100, 300)));
+      await page.keyboard.press('Backspace');
+    }
+
+    await page.keyboard.type(text[i]);
+  }
+
+  if (Math.random() < 0.2) { 
+    const extraChar = String.fromCharCode(97 + Math.floor(Math.random() * 26));
+    await page.keyboard.type(extraChar);
+    await new Promise(resolve => setTimeout(resolve, randomDelay(100, 300)));
+    await page.keyboard.press('Backspace');
+  }
+}
 
 function formatDate(birthday) {
   console.log(`Formato original da data de nascimento: ${birthday} (Tipo: ${typeof birthday})`);
@@ -91,9 +121,7 @@ async function fetchVoterData({ cpf, birthDate, motherName }, browser) {
   console.log('1.0.3 Entrou no fetch voter data');
   const page = await browser.newPage();
 
-  await page.setUserAgent(
-    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko)'
-  );
+  await page.setUserAgent(new userAgents().toString());
 
   try {
     console.log('1.0.4 [RPA] Acessando o site do TRE-CE...');
@@ -106,11 +134,11 @@ async function fetchVoterData({ cpf, birthDate, motherName }, browser) {
     );
     console.log('1.0.5 [RPA] Site acessado com sucesso.');
 
-    await new Promise((resolve) => setTimeout(resolve, 5000));
+    await new Promise((resolve) => setTimeout(resolve, randomDelay(1000, 3000)));
 
     await page.waitForSelector('.cookies .botao button', {
       visible: true,
-      timeout: 5000,
+      timeout: randomDelay(1000, 3000),
     });
     const cienteButton = await page.$('div.botao button.btn');
     if (cienteButton) {
@@ -138,24 +166,25 @@ async function fetchVoterData({ cpf, birthDate, motherName }, browser) {
 
     await page.waitForSelector('[formcontrolname=TituloCPFNome]', {
       visible: true,
-      timeout: 5000,
+      timeout: randomDelay(1000, 3000),
     });
 
-    await page.type('[formcontrolname=TituloCPFNome]', formattedCpf);
+    await humanType(page, '[formcontrolname=TituloCPFNome]', formattedCpf);
     console.log(`CPF preenchido: ${formattedCpf}`);
 
     await page.waitForSelector('[formcontrolname=dataNascimento]', {
       visible: true,
-      timeout: 5000,
+      timeout: randomDelay(1000, 3000),
     });
-    await page.type('[formcontrolname=dataNascimento]', formattedBirthDate);
+    await humanType(page, '[formcontrolname=dataNascimento]', formattedBirthDate);
     console.log(`Data de nascimento preenchida: ${formattedBirthDate}`);
 
     await page.waitForSelector('[formcontrolname=nomeMae]', {
       visible: true,
-      timeout: 6000,
+      timeout: randomDelay(1000, 3000),
     });
-    await page.type(
+    await humanType(
+      page,
       '[formcontrolname=nomeMae]',
       normalize(motherName.toUpperCase()),
     );
@@ -165,7 +194,7 @@ async function fetchVoterData({ cpf, birthDate, motherName }, browser) {
 
     await page.waitForSelector('.btn-tse', {
       visible: true,
-      timeout: 7000,
+      timeout: randomDelay(1000, 3000),
     });
     const button = await page.$('.btn-tse');
     if (button) {
@@ -179,7 +208,7 @@ async function fetchVoterData({ cpf, birthDate, motherName }, browser) {
         await page.mouse.click(
           boundingBox.x + boundingBox.width / 2,
           boundingBox.y + boundingBox.height / 2,
-          { delay: 100 },
+          { delay: randomDelay(1000, 3000) },
         );
         console.log(`Submetendo formulário para CPF: ${cpf}`);
       } else {
@@ -235,18 +264,18 @@ async function fetchVoterData({ cpf, birthDate, motherName }, browser) {
     });
 
     if (data.error) {
-      // console.log("É aqui que fodeu")
-      // const screenshotDir = path.join(__dirname, 'rpa');
-      // if (!fs.existsSync(screenshotDir)) {
-      //   fs.mkdirSync(screenshotDir, { recursive: true });
-      // }
+      console.log("É aqui que fodeu");
+      const screenshotDir = path.join(__dirname, 'rpa');
+      if (!fs.existsSync(screenshotDir)) {
+        fs.mkdirSync(screenshotDir, { recursive: true });
+      }
 
       const timestamp = new Date().toISOString();
-      // const screenshotPath = path.join(
-      //   screenshotDir,
-      //   `erro_${cpf.replace(/\s+/g, '_')}_${timestamp}.png`,
-      // );
-      // await page.screenshot({ path: screenshotPath });
+      const screenshotPath = path.join(
+        screenshotDir,
+        `erro_${cpf.replace(/\s+/g, '_')}_${timestamp}.png`,
+      );
+      await page.screenshot({ path: screenshotPath });
       console.error(
         `[${timestamp}] 1.2.4 [RPA] Erro ao processar CPF: ${cpf} - ${data.message}`,
       );
@@ -257,18 +286,18 @@ async function fetchVoterData({ cpf, birthDate, motherName }, browser) {
     );
     return data.data;
   } catch (error) {
-    console.log("NAOOO é somente aqui que fodeu")
-    // const screenshotDir = path.join(__dirname, 'rpa');
-    // if (!fs.existsSync(screenshotDir)) {
-    //   fs.mkdirSync(screenshotDir, { recursive: true });
-    // }
+    console.log("NAOOO é somente aqui que fodeu");
+    const screenshotDir = path.join(__dirname, 'rpa');
+    if (!fs.existsSync(screenshotDir)) {
+      fs.mkdirSync(screenshotDir, { recursive: true });
+    }
 
     const timestamp = new Date().toISOString();
-    // const screenshotPath = path.join(
-    //   screenshotDir,
-    //   `erro_${cpf.replace(/\s+/g, '_')}_${timestamp}.png`,
-    // );
-    // await page.screenshot({ path: screenshotPath });
+    const screenshotPath = path.join(
+      screenshotDir,
+      `erro_${cpf.replace(/\s+/g, '_')}_${timestamp}.png`,
+    );
+    await page.screenshot({ path: screenshotPath });
     console.error(
       `[${timestamp}] 1.2.4 [RPA] Erro ao processar CPF: ${cpf} - ${error.message}`,
     );
