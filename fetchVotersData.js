@@ -195,7 +195,7 @@ async function fetchVoterData({ cpf, birthDate, motherName }, browser) {
   }
 
 
-  await page.setUserAgent(new userAgents().toString());
+  await page.setUserAgent(new userAgents().random().toString());
 
   try {
     console.log('1.0.4 [RPA] Acessando o site do TRE-CE...');
