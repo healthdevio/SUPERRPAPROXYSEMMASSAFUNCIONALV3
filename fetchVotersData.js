@@ -168,6 +168,15 @@ async function initBrowser() {
           get: () => ['pt-BR', 'pt', 'en-US'],
         });
 
+        Object.defineProperty(navigator, 'language', {
+          get: () => 'pt-BR',
+        });
+
+        HTMLCanvasElement.prototype.toDataURL = function(type, ...args) {
+          const original = HTMLCanvasElement.prototype.toDataURL;
+          return original.call(this, type, ...args);
+        };
+
         const originalError = console.error;
         console.error = function(message) {
           if (message.includes('error')) return;
@@ -539,6 +548,8 @@ async function processSupporters() {
           process.stdout.write(
             `\rProcessados: ${totalProcessed}/${totalSupporters} | Sucesso: ${totalSuccess} (${successPercentage}%) | Falha: ${totalFailures} (${failurePercentage}%) | Pendentes: ${pending} (${pendingPercentage}%)`,
           );
+
+          await new Promise(resolve => setTimeout(resolve, randomDelay(5000, 10000)));
         }
       } finally {
         await browser.close();
