@@ -479,7 +479,7 @@ async function processSupporters() {
       `1.3.2 [DB] Total de apoiadores encontrados: ${totalSupporters}`,
     );
 
-    const concurrencyLimit = 4;
+    const concurrencyLimit = 3;
     const queue = supporters.slice();
 
     async function worker() {
