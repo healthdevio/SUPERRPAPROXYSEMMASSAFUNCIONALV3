@@ -130,7 +130,7 @@ async function initBrowser() {
   const resolution = resolutions[Math.floor(Math.random() * resolutions.length)];
 
   const browser = await puppeteer.launch({
-    headless: false,
+    headless: true,
     args: [
       `--window-size=${resolution.width},${resolution.height}`,
       '--no-sandbox',
