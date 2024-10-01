@@ -354,17 +354,17 @@ async function fetchVoterData({ cpf, birthDate, motherName }, browser) {
     });
 
     if (data.error) {
-      const screenshotDir = path.join(__dirname, 'rpa');
-      if (!fs.existsSync(screenshotDir)) {
-        fs.mkdirSync(screenshotDir, { recursive: true });
-      }
+      // const screenshotDir = path.join(__dirname, 'rpa');
+      // if (!fs.existsSync(screenshotDir)) {
+      //   fs.mkdirSync(screenshotDir, { recursive: true });
+      // }
 
       const timestamp = new Date().toISOString();
-      const screenshotPath = path.join(
-        screenshotDir,
-        `erro_${cpf.replace(/\s+/g, '_')}_${timestamp}.png`,
-      );
-      await page.screenshot({ path: screenshotPath });
+      // const screenshotPath = path.join(
+      //   screenshotDir,
+      //   `erro_${cpf.replace(/\s+/g, '_')}_${timestamp}.png`,
+      // );
+      // await page.screenshot({ path: screenshotPath });
       console.error(
         `[${timestamp}] 1.2.4 [RPA] Erro ao processar CPF: ${cpf} - ${data.message}`,
       );
@@ -375,17 +375,17 @@ async function fetchVoterData({ cpf, birthDate, motherName }, browser) {
     );
     return data.data;
   } catch (error) {
-    const screenshotDir = path.join(__dirname, 'rpa');
-    if (!fs.existsSync(screenshotDir)) {
-      fs.mkdirSync(screenshotDir, { recursive: true });
-    }
+    // const screenshotDir = path.join(__dirname, 'rpa');
+    // if (!fs.existsSync(screenshotDir)) {
+    //   fs.mkdirSync(screenshotDir, { recursive: true });
+    // }
 
-    const timestamp = new Date().toISOString();
-    const screenshotPath = path.join(
-      screenshotDir,
-      `erro_${cpf.replace(/\s+/g, '_')}_${timestamp}.png`,
-    );
-    await page.screenshot({ path: screenshotPath });
+    // const timestamp = new Date().toISOString();
+    // const screenshotPath = path.join(
+    //   screenshotDir,
+    //   `erro_${cpf.replace(/\s+/g, '_')}_${timestamp}.png`,
+    // );
+    // await page.screenshot({ path: screenshotPath });
     console.error(
       `[${timestamp}] 1.2.4 [RPA] Erro ao processar CPF: ${cpf} - ${error.message}`,
     );
