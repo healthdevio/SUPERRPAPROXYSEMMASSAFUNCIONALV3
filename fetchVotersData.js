@@ -5,7 +5,7 @@ const path = require('path');
 require('dotenv').config();
 
 const StealthPlugin = require('puppeteer-extra-plugin-stealth');
-const userAgents = require('user-agents');
+const UserAgent = require('user-agents');
 
 puppeteer.use(StealthPlugin());
 
@@ -97,12 +97,12 @@ const dbClient = new Client({
 });
 
 const fortalezaLocations = [
-  { latitude: -3.71722, longitude: -38.5434 }, // Centro de Fortaleza
-  { latitude: -3.73053, longitude: -38.5233 }, // Praia de Iracema
-  { latitude: -3.74935, longitude: -38.5238 }, // Beira Mar
-  { latitude: -3.7941, longitude: -38.4939 },  // Aldeota
-  { latitude: -3.83935, longitude: -38.5744 }, // Messejana
-  { latitude: -3.72631, longitude: -38.4766 }, // Benfica
+  { latitude: -3.71722, longitude: -38.5434 },
+  { latitude: -3.73053, longitude: -38.5233 }, 
+  { latitude: -3.74935, longitude: -38.5238 }, 
+  { latitude: -3.7941, longitude: -38.4939 },
+  { latitude: -3.83935, longitude: -38.5744 },
+  { latitude: -3.72631, longitude: -38.4766 }, 
 ];
 
 function getRandomFortalezaLocation() {
@@ -130,7 +130,7 @@ async function initBrowser() {
   const resolution = resolutions[Math.floor(Math.random() * resolutions.length)];
 
   const browser = await puppeteer.launch({
-    headless: true,
+    headless: false, 
     args: [
       `--window-size=${resolution.width},${resolution.height}`,
       '--no-sandbox',
@@ -142,10 +142,14 @@ async function initBrowser() {
       '--disable-gpu',
       '--incognito',
       '--enable-blink-features=HTMLImports',
+      '--disable-blink-features=AutomationControlled',
+      '--start-maximized',
+      '--disable-features=IsolateOrigins,site-per-process',
     ],
+    defaultViewport: null, 
     waitForInitialPage: false,
   });
-  
+
   const context = browser.defaultBrowserContext();
   await context.overridePermissions('https://www.tre-ce.jus.br', ['geolocation']);
 
@@ -182,6 +186,35 @@ async function initBrowser() {
           if (message.includes('error')) return;
           originalError.apply(console, arguments);
         };
+
+        Object.defineProperty(navigator, 'plugins', {
+          get: () => [1, 2, 3, 4, 5],
+        });
+
+        Object.defineProperty(navigator, 'mimeTypes', {
+          get: () => [1, 2, 3, 4, 5],
+        });
+
+        const originalGetUserMedia = navigator.mediaDevices.getUserMedia;
+        navigator.mediaDevices.getUserMedia = function(constraints) {
+          return originalGetUserMedia.call(this, constraints);
+        };
+
+        delete navigator.__proto__.webdriver;
+      });
+
+      await page.setRequestInterception(true);
+      page.on('request', (request) => {
+        const resourceType = request.resourceType();
+        if (resourceType === 'image' || resourceType === 'stylesheet' || resourceType === 'font') {
+          request.continue();
+        } else {
+          request.continue();
+        }
+      });
+
+      await page.evaluateOnNewDocument(() => {
+        document.addEventListener('mousemove', () => {});
       });
     }
   });
@@ -204,8 +237,19 @@ async function fetchVoterData({ cpf, birthDate, motherName }, browser) {
     });
   }
 
+  let userAgent;
+  try {
+    userAgent = new UserAgent({
+      deviceCategory: 'desktop',
+      locale: 'pt-BR',
+      platformName: 'Windows',
+    }).toString();
+  } catch (error) {
+    console.error('Erro ao gerar User-Agent com os filtros fornecidos. Usando User-Agent padrão.');
+    userAgent = new UserAgent().toString();
+  }
 
-  await page.setUserAgent(new userAgents().random().toString());
+  await page.setUserAgent(userAgent);
 
   try {
     console.log('1.0.4 [RPA] Acessando o site do TRE-CE...');
@@ -213,7 +257,7 @@ async function fetchVoterData({ cpf, birthDate, motherName }, browser) {
       'https://www.tre-ce.jus.br/servicos-eleitorais/titulo-e-local-de-votacao/consulta-por-nome',
       {
         waitUntil: 'networkidle2',
-        timeout: 120000,
+        timeout: 100000,
       },
     );
     console.log('1.0.5 [RPA] Site acessado com sucesso.');
@@ -354,17 +398,17 @@ async function fetchVoterData({ cpf, birthDate, motherName }, browser) {
     });
 
     if (data.error) {
-      // const screenshotDir = path.join(__dirname, 'rpa');
-      // if (!fs.existsSync(screenshotDir)) {
-      //   fs.mkdirSync(screenshotDir, { recursive: true });
-      // }
+      const screenshotDir = path.join(__dirname, 'rpa');
+      if (!fs.existsSync(screenshotDir)) {
+        fs.mkdirSync(screenshotDir, { recursive: true });
+      }
 
       const timestamp = new Date().toISOString();
-      // const screenshotPath = path.join(
-      //   screenshotDir,
-      //   `erro_${cpf.replace(/\s+/g, '_')}_${timestamp}.png`,
-      // );
-      // await page.screenshot({ path: screenshotPath });
+      const screenshotPath = path.join(
+        screenshotDir,
+        `erro_${cpf.replace(/\s+/g, '_')}_${timestamp}.png`,
+      );
+      await page.screenshot({ path: screenshotPath });
       console.error(
         `[${timestamp}] 1.2.4 [RPA] Erro ao processar CPF: ${cpf} - ${data.message}`,
       );
@@ -375,17 +419,17 @@ async function fetchVoterData({ cpf, birthDate, motherName }, browser) {
     );
     return data.data;
   } catch (error) {
-    // const screenshotDir = path.join(__dirname, 'rpa');
-    // if (!fs.existsSync(screenshotDir)) {
-    //   fs.mkdirSync(screenshotDir, { recursive: true });
-    // }
+    const screenshotDir = path.join(__dirname, 'rpa');
+    if (!fs.existsSync(screenshotDir)) {
+      fs.mkdirSync(screenshotDir, { recursive: true });
+    }
 
     const timestamp = new Date().toISOString();
-    // const screenshotPath = path.join(
-    //   screenshotDir,
-    //   `erro_${cpf.replace(/\s+/g, '_')}_${timestamp}.png`,
-    // );
-    // await page.screenshot({ path: screenshotPath });
+    const screenshotPath = path.join(
+      screenshotDir,
+      `erro_${cpf.replace(/\s+/g, '_')}_${timestamp}.png`,
+    );
+    await page.screenshot({ path: screenshotPath });
     console.error(
       `[${timestamp}] 1.2.4 [RPA] Erro ao processar CPF: ${cpf} - ${error.message}`,
     );
