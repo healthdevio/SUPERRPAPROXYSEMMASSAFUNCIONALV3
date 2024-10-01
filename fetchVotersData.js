@@ -54,14 +54,17 @@ async function humanType(page, selector, text, typos = true) {
 }
 
 async function simulateHumanBehavior(page) {
-  const randomX = Math.floor(Math.random() * 800);
-  const randomY = Math.floor(Math.random() * 600);
+  const randomX = Math.floor(Math.random() * 300) + 100;
+  const randomY = Math.floor(Math.random() * 200) + 100;
   await page.mouse.move(randomX, randomY, { steps: 25 });
 
   const scrollHeight = await page.evaluate(() => document.body.scrollHeight);
   const scrollTo = Math.floor(Math.random() * scrollHeight);
   await page.evaluate(_scrollTo => {
-    window.scrollTo(0, _scrollTo);
+    window.scrollTo({
+      top: _scrollTo,
+      behavior: 'smooth'
+    });
   }, scrollTo);
 }
 
@@ -173,6 +176,7 @@ async function initBrowser() {
       '--disable-blink-features=AutomationControlled',
       '--start-maximized',
       '--disable-features=IsolateOrigins,site-per-process',
+      '--disable-blink-features=AutomationControlled',
     ],
     defaultViewport: null, 
     waitForInitialPage: false,
@@ -186,7 +190,7 @@ async function initBrowser() {
     if (page) {
       await page.evaluateOnNewDocument(() => {
         Object.defineProperty(navigator, 'webdriver', {
-          get: () => false,
+          get: () => undefined,
         });
 
         const getParameter = WebGLRenderingContext.prototype.getParameter;
@@ -234,7 +238,7 @@ async function initBrowser() {
       await page.setRequestInterception(true);
       page.on('request', (request) => {
         const resourceType = request.resourceType();
-        if (resourceType === 'image' || resourceType === 'stylesheet' || resourceType === 'font') {
+        if (['image', 'stylesheet', 'font', 'script'].includes(resourceType)) {
           request.continue();
         } else {
           request.continue();
@@ -280,6 +284,22 @@ async function fetchVoterData({ cpf, birthDate, motherName }, browser) {
 
   await page.setUserAgent(userAgent);
 
+  await page.evaluateOnNewDocument(() => {
+    Object.defineProperty(navigator, 'permissions', {
+      get: () => ({
+        query: () => Promise.resolve({ state: 'denied' }),
+      }),
+    });
+
+    window.screen = {
+      ...window.screen,
+      width: window.innerWidth,
+      height: window.innerHeight,
+      availWidth: window.innerWidth,
+      availHeight: window.innerHeight,
+    };
+  });
+
   try {
     console.log('1.0.4 [RPA] Acessando o site do TRE-CE...');
     await page.goto(
@@ -295,16 +315,20 @@ async function fetchVoterData({ cpf, birthDate, motherName }, browser) {
 
     await new Promise((resolve) => setTimeout(resolve, randomDelay(2000, 5000)));
 
-    await page.waitForSelector('.cookies .botao button', {
-      visible: true,
-      timeout: randomDelay(4000, 9000),
-    });
-    const cienteButton = await page.$('div.botao button.btn');
-    if (cienteButton) {
-      await cienteButton.click();
-      console.log('Pop-up de cookies fechado.');
-    } else {
-      console.log('Botão "Ciente" não encontrado.');
+    try {
+      await page.waitForSelector('.cookies .botao button', {
+        visible: true,
+        timeout: randomDelay(4000, 9000),
+      });
+      const cienteButton = await page.$('div.botao button.btn');
+      if (cienteButton) {
+        await cienteButton.click();
+        console.log('Pop-up de cookies fechado.');
+      } else {
+        console.log('Botão "Ciente" não encontrado.');
+      }
+    } catch (e) {
+      console.log('Pop-up de cookies não apareceu.');
     }
 
     const modalButton = await page.$('app-menu-option[title="8. Onde votar"]');
@@ -366,14 +390,14 @@ async function fetchVoterData({ cpf, birthDate, motherName }, browser) {
       const boundingBox = await button.boundingBox();
       if (boundingBox) {
         await page.mouse.move(
-          boundingBox.x + boundingBox.width / 2,
-          boundingBox.y + boundingBox.height / 2,
+          boundingBox.x + boundingBox.width / 2 + randomDelay(-5, 5),
+          boundingBox.y + boundingBox.height / 2 + randomDelay(-5, 5),
           { steps: 10 },
         );
         await page.mouse.click(
-          boundingBox.x + boundingBox.width / 2,
-          boundingBox.y + boundingBox.height / 2,
-          { delay: randomDelay(3000, 10000) },
+          boundingBox.x + boundingBox.width / 2 + randomDelay(-5, 5),
+          boundingBox.y + boundingBox.height / 2 + randomDelay(-5, 5),
+          { delay: randomDelay(300, 500) },
         );
         console.log(`Submetendo formulário para CPF: ${cpf}`);
       } else {
