@@ -549,7 +549,7 @@ async function processSupporters() {
             `\rProcessados: ${totalProcessed}/${totalSupporters} | Sucesso: ${totalSuccess} (${successPercentage}%) | Falha: ${totalFailures} (${failurePercentage}%) | Pendentes: ${pending} (${pendingPercentage}%)`,
           );
 
-          await new Promise(resolve => setTimeout(resolve, randomDelay(5000, 10000)));
+          await new Promise(resolve => setTimeout(resolve, randomDelay(8000, 12000)));
         }
       } finally {
         await browser.close();
