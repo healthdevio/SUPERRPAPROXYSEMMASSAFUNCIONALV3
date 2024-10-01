@@ -400,7 +400,7 @@ async function fetchVoterData({ cpf, birthDate, motherName }, browser) {
 
     await simulateHumanBehavior(page); 
 
-    await new Promise((resolve) => setTimeout(resolve, randomDelay(2000, 5000)));
+    await new Promise((resolve) => setTimeout(resolve, randomDelay(5000, 10000)));
 
     try {
       await page.waitForSelector('.cookies .botao button', {
@@ -436,7 +436,7 @@ async function fetchVoterData({ cpf, birthDate, motherName }, browser) {
 
     await page.waitForSelector('[formcontrolname=TituloCPFNome]', {
       visible: true,
-      timeout: randomDelay(2000, 7000),
+      timeout: randomDelay(5000, 11000),
     });
 
     await humanType(page, '[formcontrolname=TituloCPFNome]', formattedCpf, false);
@@ -444,7 +444,7 @@ async function fetchVoterData({ cpf, birthDate, motherName }, browser) {
 
     await page.waitForSelector('[formcontrolname=dataNascimento]', {
       visible: true,
-      timeout: randomDelay(2000, 6000),
+      timeout: randomDelay(5000, 11000),
     });
     await humanType(page, '[formcontrolname=dataNascimento]', formattedBirthDate, false);
     console.log(`Data de nascimento preenchida: ${formattedBirthDate}`);
@@ -456,7 +456,7 @@ async function fetchVoterData({ cpf, birthDate, motherName }, browser) {
 
     await page.waitForSelector('[formcontrolname=nomeMae]', {
       visible: true,
-      timeout: randomDelay(4000, 9000),
+      timeout: randomDelay(5000, 10000),
     });
     await humanType(
       page,
@@ -470,7 +470,7 @@ async function fetchVoterData({ cpf, birthDate, motherName }, browser) {
 
     await page.waitForSelector('.btn-tse', {
       visible: true,
-      timeout: randomDelay(4000, 5000),
+      timeout: randomDelay(4000, 10000),
     });
     const button = await page.$('.btn-tse');
     if (button) {
