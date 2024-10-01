@@ -54,8 +54,8 @@ async function humanType(page, selector, text, typos = true) {
 }
 
 async function simulateHumanBehavior(page) {
-  const randomX = Math.floor(Math.random() * 300) + 100;
-  const randomY = Math.floor(Math.random() * 200) + 100;
+  const randomX = Math.floor(Math.random() * 100) + 100;
+  const randomY = Math.floor(Math.random() * 50) + 100;
   await page.mouse.move(randomX, randomY, { steps: 25 });
 
   const scrollHeight = await page.evaluate(() => document.body.scrollHeight);
@@ -161,7 +161,7 @@ async function initBrowser() {
   const resolution = resolutions[Math.floor(Math.random() * resolutions.length)];
 
   const browser = await puppeteer.launch({
-    headless: false, 
+    headless: false,
     args: [
       `--window-size=${resolution.width},${resolution.height}`,
       '--no-sandbox',
@@ -178,7 +178,7 @@ async function initBrowser() {
       '--disable-features=IsolateOrigins,site-per-process',
       '--disable-blink-features=AutomationControlled',
     ],
-    defaultViewport: null, 
+    defaultViewport: null,
     waitForInitialPage: false,
   });
 
@@ -189,14 +189,55 @@ async function initBrowser() {
     const page = await target.page();
     if (page) {
       await page.evaluateOnNewDocument(() => {
-        Object.defineProperty(navigator, 'webdriver', {
-          get: () => undefined,
+        const originalCreateOffer = RTCPeerConnection.prototype.createOffer;
+        const originalCreateAnswer = RTCPeerConnection.prototype.createAnswer;
+        const originalSetLocalDescription = RTCPeerConnection.prototype.setLocalDescription;
+
+        RTCPeerConnection.prototype.createOffer = function () {
+          return originalCreateOffer.apply(this, arguments).then((offer) => {
+            offer.sdp = offer.sdp.replace(/a=candidate:.+\r\n/g, ''); 
+            return offer;
+          });
+        };
+
+        RTCPeerConnection.prototype.createAnswer = function () {
+          return originalCreateAnswer.apply(this, arguments).then((answer) => {
+            answer.sdp = answer.sdp.replace(/a=candidate:.+\r\n/g, ''); 
+            return answer;
+          });
+        };
+
+        RTCPeerConnection.prototype.setLocalDescription = function (description) {
+          description.sdp = description.sdp.replace(/a=candidate:.+\r\n/g, ''); 
+          return originalSetLocalDescription.apply(this, [description]);
+        };
+
+        Object.defineProperty(navigator, 'mediaDevices', {
+          value: {
+            getUserMedia: function (constraints) {
+              return new Promise((resolve, reject) => {
+                if (constraints.audio || constraints.video) {
+                  resolve({
+                    getTracks: () => [{ kind: 'video', label: 'Fake Camera' }, { kind: 'audio', label: 'Fake Microphone' }],
+                  });
+                } else {
+                  reject(new Error('No devices found.'));
+                }
+              });
+            },
+            enumerateDevices: function () {
+              return Promise.resolve([
+                { kind: 'videoinput', label: 'Fake Camera 1', deviceId: 'fake-device-id' },
+                { kind: 'audioinput', label: 'Fake Microphone 1', deviceId: 'fake-device-id' },
+              ]);
+            },
+          },
         });
 
         const getParameter = WebGLRenderingContext.prototype.getParameter;
-        WebGLRenderingContext.prototype.getParameter = function(parameter) {
+        WebGLRenderingContext.prototype.getParameter = function (parameter) {
           if (parameter === 37445) return 'Intel Inc.';
-          if (parameter === 37446) return 'Intel Iris OpenGL Engine'; 
+          if (parameter === 37446) return 'Intel Iris OpenGL Engine';
           return getParameter(parameter);
         };
 
@@ -208,13 +249,13 @@ async function initBrowser() {
           get: () => 'pt-BR',
         });
 
-        HTMLCanvasElement.prototype.toDataURL = function(type, ...args) {
+        HTMLCanvasElement.prototype.toDataURL = function (type, ...args) {
           const original = HTMLCanvasElement.prototype.toDataURL;
           return original.call(this, type, ...args);
         };
 
         const originalError = console.error;
-        console.error = function(message) {
+        console.error = function (message) {
           if (message.includes('error')) return;
           originalError.apply(console, arguments);
         };
@@ -233,6 +274,50 @@ async function initBrowser() {
         };
 
         delete navigator.__proto__.webdriver;
+
+        Object.defineProperty(navigator, 'hardwareConcurrency', {
+          get: () => 8,
+        });
+
+        Object.defineProperty(navigator, 'deviceMemory', {
+          get: () => 8,
+        });
+
+        Object.defineProperty(window, 'screen', {
+          get: () => ({
+            width: window.innerWidth,
+            height: window.innerHeight,
+            availWidth: window.innerWidth,
+            availHeight: window.innerHeight,
+            colorDepth: 24,
+            pixelDepth: 24,
+          }),
+        });
+
+        Object.defineProperty(window, 'outerWidth', {
+          get: () => window.innerWidth + 100,
+        });
+
+        Object.defineProperty(window, 'outerHeight', {
+          get: () => window.innerHeight + 100,
+        });
+
+        Object.defineProperty(navigator, 'platform', {
+          get: () => 'Win32',
+        });
+
+        Object.defineProperty(navigator, 'appVersion', {
+          get: () => '5.0 (Windows)',
+        });
+
+        window.ontouchstart = () => {};
+
+        Object.defineProperty(navigator, 'gpu', {
+          get: () => ({
+            renderer: 'ANGLE (Intel Iris OpenGL Engine)',
+            vendor: 'Intel Inc.',
+          }),
+        });
       });
 
       await page.setRequestInterception(true);
@@ -297,6 +382,8 @@ async function fetchVoterData({ cpf, birthDate, motherName }, browser) {
       height: window.innerHeight,
       availWidth: window.innerWidth,
       availHeight: window.innerHeight,
+      colorDepth: 24,
+      pixelDepth: 24,
     };
   });
 
