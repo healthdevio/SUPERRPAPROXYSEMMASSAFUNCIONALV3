@@ -7,6 +7,22 @@ require('dotenv').config();
 const StealthPlugin = require('puppeteer-extra-plugin-stealth');
 const UserAgent = require('user-agents');
 
+const cookiesPath = path.resolve(__dirname, 'cookies.json');
+
+async function loadCookies(page) {
+  if (fs.existsSync(cookiesPath)) {
+    const cookies = JSON.parse(fs.readFileSync(cookiesPath, 'utf-8'));
+    await page.setCookie(...cookies);
+    console.log('Cookies carregados.');
+  }
+}
+
+async function saveCookies(page) {
+  const cookies = await page.cookies();
+  fs.writeFileSync(cookiesPath, JSON.stringify(cookies, null, 2));
+  console.log('Cookies salvos.');
+}
+
 puppeteer.use(StealthPlugin());
 
 function randomDelay(min, max) {
@@ -35,6 +51,18 @@ async function humanType(page, selector, text, typos = true) {
     await new Promise(resolve => setTimeout(resolve, randomDelay(100, 300)));
     await page.keyboard.press('Backspace');
   }
+}
+
+async function simulateHumanBehavior(page) {
+  const randomX = Math.floor(Math.random() * 800);
+  const randomY = Math.floor(Math.random() * 600);
+  await page.mouse.move(randomX, randomY, { steps: 25 });
+
+  const scrollHeight = await page.evaluate(() => document.body.scrollHeight);
+  const scrollTo = Math.floor(Math.random() * scrollHeight);
+  await page.evaluate(_scrollTo => {
+    window.scrollTo(0, _scrollTo);
+  }, scrollTo);
 }
 
 function formatDate(birthday) {
@@ -228,6 +256,7 @@ async function fetchVoterData({ cpf, birthDate, motherName }, browser) {
 
   const page = await browser.newPage();
   await setGeolocation(page);
+  await loadCookies(page); 
 
   const viewport = browser.wsEndpoint().match(/--window-size=(\d+),(\d+)/);
   if (viewport) {
@@ -261,6 +290,8 @@ async function fetchVoterData({ cpf, birthDate, motherName }, browser) {
       },
     );
     console.log('1.0.5 [RPA] Site acessado com sucesso.');
+
+    await simulateHumanBehavior(page); 
 
     await new Promise((resolve) => setTimeout(resolve, randomDelay(4000, 9000)));
 
@@ -417,6 +448,7 @@ async function fetchVoterData({ cpf, birthDate, motherName }, browser) {
     console.log(
       `1.2.3 [RPA] Dados obtidos com sucesso para CPF: ${cpf}`,
     );
+    await saveCookies(page); 
     return data.data;
   } catch (error) {
     const screenshotDir = path.join(__dirname, 'rpa');
