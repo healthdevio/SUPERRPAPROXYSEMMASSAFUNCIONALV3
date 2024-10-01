@@ -359,7 +359,7 @@ async function fetchVoterData({ cpf, birthDate, motherName }, browser) {
       //   fs.mkdirSync(screenshotDir, { recursive: true });
       // }
 
-      const timestamp = new Date().toISOString();
+      // const timestamp = new Date().toISOString();
       // const screenshotPath = path.join(
       //   screenshotDir,
       //   `erro_${cpf.replace(/\s+/g, '_')}_${timestamp}.png`,
