@@ -405,7 +405,7 @@ async function getSupportersFromDatabase() {
     const query = `
       SELECT cpf, mother_name, birthday
       FROM supporters
-      WHERE contract_id = '49e33fac-7e97-4d86-8cc3-1bc66e0ffa11'
+      WHERE contract_id = '5092d795-e184-407a-9e4a-cd853dafd83c'
         AND mother_name IS NOT NULL
         AND birthday IS NOT NULL
         AND cpf IS NOT NULL
@@ -479,7 +479,7 @@ async function processSupporters() {
       `1.3.2 [DB] Total de apoiadores encontrados: ${totalSupporters}`,
     );
 
-    const concurrencyLimit = 5;
+    const concurrencyLimit = 4;
     const queue = supporters.slice();
 
     async function worker() {
